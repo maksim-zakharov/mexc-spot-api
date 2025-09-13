@@ -55,6 +55,8 @@ class WSClient{
 
     constructor(options: FinamApiOptions) {
         this.options = Object.assign({}, defaults, options);
+
+        this.connect();
     }
 
     get size(){
