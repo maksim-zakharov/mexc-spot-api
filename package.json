@@ -1,0 +1,45 @@
+{
+  "name": "mexc-spot-api",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "./cjs/index.js",
+  "module": "./dist/index.js",
+  "files": [
+    "src",
+    "dist",
+    "cjs",
+    "README.md"
+  ],
+  "scripts": {
+    "build:esm": "tsc -p tsconfig.build.json",
+    "build:cjs": "tsc -p tsconfig.build.cjs.json && echo {\"type\":\"commonjs\"} > cjs/package.json",
+    "build": "npm run build:esm && npm run build:cjs",
+    "pull-lib": "git clone https://github.com/mexcdevelop/websocket-proto.git",
+    "generate-proto": "protoc --plugin=protoc-gen-ts_proto.cmd=node_modules/.bin/ts_proto --ts_proto_out=src/generated --ts_proto_opt=outputServices=grpc-js,env=node -I websocket-proto websocket-proto/*.proto"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/proto-loader": "^0.8.0",
+    "@types/node": "^24.3.3",
+    "nice-grpc": "^2.1.12",
+    "ts-node": "^10.9.2",
+    "ts-proto": "^2.7.7",
+    "typescript": "^5.9.2",
+    "ws": "^8.18.3"
+  },
+  "author": "Maksim Zakharov",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/maksim-zakharov/mexc-spot-api.git"
+  },
+  "keywords": [
+    "mexc",
+    "spot",
+    "api"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
+  }
+}
