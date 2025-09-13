@@ -120,7 +120,7 @@ class WSClient{
             const obj: any = PushDataV3ApiWrapper.toJSON(message);
 
             const key = `spot@` + obj.channel.split('@')[1];
-            this.subscriptions.get(obj.channel)?.forEach(obj[channelMapKey[key]])
+            this.subscriptions.get(obj.channel)?.forEach(callback => callback(obj[channelMapKey[key]]))
         };
     }
 
