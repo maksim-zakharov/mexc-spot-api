@@ -40,7 +40,7 @@ class WSClient{
     // @ts-ignore
     private ws: WebSocket;
 
-    private subscriptions = new Map<string, any>();
+    private subscriptions = new Map<string, ((val: any) => void)[]>();
 
     private isConnected: boolean = false;
 
@@ -118,7 +118,7 @@ class WSClient{
             const obj: any = PushDataV3ApiWrapper.toJSON(message);
 
             const key = `spot@` + obj.channel.split('@')[1];
-            this.subscriptions.get(obj.channel)?.(obj[channelMapKey[key]])
+            this.subscriptions.get(obj.channel)?.forEach(obj[channelMapKey[key]])
         };
     }
 
@@ -154,14 +154,17 @@ class WSClient{
 
     // Повторная подписка на все события
     private resubscribe() {
-        Array.from(this.subscriptions).forEach(([subscription, callback]) => {
-            this.subscribe(subscription, callback);
+        Array.from(this.subscriptions).forEach(([subscription, callbacks]) => {
+            callbacks.forEach(callback => this.subscribe(subscription, callback));
             console.log(`Resubscribed to ${JSON.stringify(subscription)}`);
         });
     }
 
     public subscribe(channel: string, callback: any) {
-        this.subscriptions.set(channel, callback)
+        // На каждый канал может быть много коллбеков
+        const callbacks = this.subscriptions.get(channel) || [];
+        callbacks.push(callback);
+        this.subscriptions.set(channel, callbacks)
 
         if (this.isConnected) {
             this.ws.send(JSON.stringify({
