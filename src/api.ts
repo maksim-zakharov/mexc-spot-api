@@ -34,12 +34,13 @@ const defaults: Required<Pick<FinamApiOptions, 'endpoint'>> = {
     endpoint: 'wss://wbs-api.mexc.com/ws',
 };
 
-export class MexcSpotApi {
-    options: FinamApiOptions & typeof defaults;
+class WSClient{
+
+    private pingInterval?: NodeJS.Timeout;
     // @ts-ignore
     private ws: WebSocket;
 
-    private pingInterval?: NodeJS.Timeout;
+    private subscriptions = new Map<string, any>();
 
     private isConnected: boolean = false;
 
@@ -50,12 +51,18 @@ export class MexcSpotApi {
     private reconnectDecay = 500;
     private maxReconnectInterval = 5000;
 
-    private subscriptions = new Map<string, any>();
+    options: FinamApiOptions & typeof defaults;
 
     constructor(options: FinamApiOptions) {
         this.options = Object.assign({}, defaults, options);
+    }
 
-        this.connect();
+    get size(){
+        return this.subscriptions.size;
+    }
+
+    get(channel: string){
+        return this.subscriptions.get(channel);
     }
 
     // Подключение к WebSocket
@@ -153,7 +160,9 @@ export class MexcSpotApi {
         });
     }
 
-    protected subscribe(channel: string, callback: any) {
+    public subscribe(channel: string, callback: any) {
+        this.subscriptions.set(channel, callback)
+
         if (this.isConnected) {
             this.ws.send(JSON.stringify({
                 method: 'SUBSCRIPTION',
@@ -162,28 +171,67 @@ export class MexcSpotApi {
                 ]
             }));
         }
-        this.subscriptions.set(channel, callback)
+    }
+}
+
+export class MexcSpotApi {
+    options: FinamApiOptions & typeof defaults;
+
+    private clients: WSClient[] = [];
+
+    constructor(options: FinamApiOptions) {
+        this.options = Object.assign({}, defaults, options);
     }
 
-    async subscribeAccountOrders(callback: (response: PrivateOrdersV3Api) => void) {
+    findClientByChannel(channel: string){
+        return this.clients.find(c => c.get(channel));
+    }
+
+    get clientsCount(){
+        return this.clients.length;
+    }
+
+    get totalSize(){
+        return this.clients.reduce((acc, curr) => acc + curr.size, 0);
+    }
+
+    get lastClient() {
+        let client = this.clients[0];
+        // Максимум по 30 соединений, подстрахуемся на 25
+        if(!client || client.size >= 25){
+            client = new WSClient(this.options);
+            this.clients.unshift(client)
+        }
+
+        return client;
+    }
+
+    subscribe(channel: string, callback: any){
+        // Либо суем туда где уже зарегано, либо создаем новый клиент
+        const client = this.findClientByChannel(channel);
+        if(client) client.subscribe(channel, callback)
+        else this.lastClient.subscribe(channel, callback)
+    }
+
+     subscribeAccountOrders(callback: (response: PrivateOrdersV3Api) => void) {
         const channel = `spot@private.orders.v3.api.pb`;
 
         this.subscribe(channel, callback)
     }
 
-    async subscribeAccountDeals(callback: (response: PrivateDealsV3Api) => void) {
+     subscribeAccountDeals(callback: (response: PrivateDealsV3Api) => void) {
         const channel = `spot@private.deals.v3.api.pb`;
 
         this.subscribe(channel, callback)
     }
 
-    async subscribeAccount(callback: (response: PrivateAccountV3Api) => void) {
+     subscribeAccount(callback: (response: PrivateAccountV3Api) => void) {
         const channel = `spot@private.account.v3.api.pb`;
 
         this.subscribe(channel, callback)
     }
 
-    async subscribeLimitDepths(params: {
+     subscribeLimitDepths(params: {
         symbol: string;
         level: 5 | 10 | 20;
     }, callback: (response: PublicLimitDepthsV3Api) => void) {
@@ -192,7 +240,7 @@ export class MexcSpotApi {
         this.subscribe(channel, callback)
     }
 
-    async subscribeBookTickerBatch(params: {
+     subscribeBookTickerBatch(params: {
         symbol: string;
     }, callback: (response: PublicBookTickerBatchV3Api) => void) {
         const channel =  `spot@public.bookTicker.batch.v3.api.pb@${params.symbol}`;
@@ -200,7 +248,7 @@ export class MexcSpotApi {
         this.subscribe(channel, callback)
     }
 
-    async subscribeBookTicker(params: {
+     subscribeBookTicker(params: {
         symbol: string;
         delay: '10ms' | '100ms';
     }, callback: (response: PublicBookTickerV3Api) => void) {
@@ -209,7 +257,7 @@ export class MexcSpotApi {
         this.subscribe(channel, callback)
     }
 
-    async subscribeAggreDepths(params: {
+     subscribeAggreDepths(params: {
         symbol: string;
         delay: '10ms' | '100ms';
     }, callback: (response: PublicAggreDepthsV3Api) => void) {
@@ -218,7 +266,7 @@ export class MexcSpotApi {
         this.subscribe(channel, callback)
     }
 
-    async subscribeAggreDeals(params: {
+     subscribeAggreDeals(params: {
         symbol: string;
         delay: '10ms' | '100ms';
     }, callback: (response: PublicAggreDealsV3Api) => void) {
@@ -227,7 +275,7 @@ export class MexcSpotApi {
         this.subscribe(channel, callback)
     }
 
-    async subscribeSpotKline(params: {
+     subscribeSpotKline(params: {
         symbol: string;
         interval: string;
     }, callback: (response: PublicSpotKlineV3Api) => void) {
