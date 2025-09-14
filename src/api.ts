@@ -40,7 +40,7 @@ class WSClient{
     // @ts-ignore
     private ws: WebSocket;
 
-    private subscriptions = new Map<string, ((val: any) => void)[]>();
+    private subscriptions = new Map<string, Set<(val: any) => void>>();
 
     private isConnected: boolean = false;
 
@@ -164,8 +164,8 @@ class WSClient{
 
     public subscribe(channel: string, callback: any) {
         // На каждый канал может быть много коллбеков
-        const callbacks = this.subscriptions.get(channel) || [];
-        callbacks.push(callback);
+        const callbacks = this.subscriptions.get(channel) || new Set<any>();
+        callbacks.add(callback);
         this.subscriptions.set(channel, callbacks)
 
         if (this.isConnected) {
